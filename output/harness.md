@@ -249,3 +249,17 @@ The ending checking balance of **$160.00** matches `cash_accounts`. Details are 
 | Reset before a full run | `POST /api/reset`, the dashboard's Reset button, or `python -m backend.run_team --reset` |
 | Don't email customers or call vendors | No send tools exist. `draft_message` and `draft_vendor_reorder` only write to `drafts` |
 | Only gpt-6-luna via Portkey | `MODEL_NAME` constant in `backend/config.py`; the audit trail logs the model each response reports |
+
+---
+
+## Agent prompts: expanded after the graded run
+
+The Problem 9 run (the outputs in `desk_tickets.html`, `resolved_tickets.json` and `audit_trail.json`) used the original one-sentence prompts. After the run, each prompt in `backend/prompts/` was expanded, keeping its original sentence as the opener, to fix what the run exposed:
+
+- **Boss:** routing by ticket type, one delegation at a time (no parallel fan-out, which caused 103's 5 hand-offs), Customer Service always last, status rules, and token discipline.
+- **Inventory:** the vendor-block rule, `date_today + lead_days` arrivals only, and reorder drafts for only the quantity needed.
+- **Accounting:** check before filing, no duplicate requests, running totals, cost floor, and no invented discount policy.
+- **Facilities:** lease from the database not the email, rent goes to Accounting, and `author="facilities"` (its first draft on 102 was rejected for the wrong author).
+- **Customer Service:** *drafts only, never sent*, always save a draft (none was saved on 101 or 103), no re-delegating to teammates already on the ticket, and no invented dates or discounts.
+
+To see the effect, reset the database and rerun the three tickets.

@@ -200,3 +200,5 @@ A copy of every prompt typed while vibe coding this homework, one section per pr
 > any questions for any of these problems now that it's finished?
 
 *(Attachment: screenshot of the expected `hw5/` file tree.)*
+
+> expand the agent prompts and push the update
