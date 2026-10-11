@@ -263,3 +263,5 @@ The Problem 9 run (the outputs in `desk_tickets.html`, `resolved_tickets.json` a
 - **Customer Service:** *drafts only, never sent*, always save a draft (none was saved on 101 or 103), no re-delegating to teammates already on the ticket, and no invented dates or discounts.
 
 To see the effect, reset the database and rerun the three tickets.
+
+**Note on the audit trail after grading:** `audit_trail.json` is append-only, so it also contains a later, ungraded practice run on ticket 101 (a reset at 18:48 UTC, team run `8d5b4e0250a5`, then a payment approval). The graded runs are `2eb5a59adce5` (101), `463ea7760cdc` (102) and `51d56979ac88` (103). `data/campus_customs_new.db` in this repo is the graded end state: all 3 tickets resolved and checking at $160.00.
