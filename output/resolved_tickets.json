@@ -1,5 +1,6 @@
 {
   "run": {
+    "description": "Final graded run with the expanded agent prompts, starting from a fresh reset",
     "shop_date": "2026-08-31",
     "database": "data/campus_customs_new.db (reset from data/campus_customs.db before the run)",
     "model": "gpt-6-luna via Portkey (API reported version gpt-6-luna-2026-09-22)",
@@ -7,7 +8,9 @@
     "ending_checking_balance": 160.00,
     "ending_balance_matches_cash_accounts": true,
     "total_paid_out": 3240.00,
-    "total_tokens": 105671
+    "team_runs": ["4338ea3447e4 (101)", "83c0dea08a19 (102)", "e81e61963687 (103)", "9b35ae8824f3 (103 decision)", "ce1db5469628 (101 follow-up)", "84a96fadf8fc (103 follow-up)"],
+    "total_tokens": 257256,
+    "human_authorization": "Elise in chat: 'approve #1 and #2 as Elise, go with 20% off'. Approve & pay was then clicked on the dashboard signed as Elise."
   },
   "tickets": [
     {
@@ -16,20 +19,25 @@
       "requester": "Tauhid Zaman",
       "type": "customer_order",
       "final_status": "resolved",
-      "team_run_id": "2eb5a59adce5",
-      "outcome": "CC-TEE-WHITE size S was out of stock (0). Restock vendor Bulldog Print Co was blocked by overdue invoice #501 ($840, due 2026-08-28). Accounting filed approval #1, a human approved it, the invoice was paid and the vendor is unblocked. No reorder or customer reply was drafted.",
-      "delegations": ["boss -> inventory", "boss -> accounting"],
+      "team_run_ids": ["4338ea3447e4", "ce1db5469628"],
+      "outcome": "CC-TEE-WHITE size S was out of stock (0). Restock vendor Bulldog Print Co was blocked by overdue invoice #501 ($840). Accounting filed approval #1, Elise approved it, and the invoice was paid. The follow-up released held reorder #1 (1 tee, expected 2026-09-05 if sent) and saved updated customer reply #6.",
+      "delegations": ["boss -> inventory", "boss -> accounting", "boss -> customer_service", "boss -> inventory (follow-up)", "boss -> customer_service (follow-up)"],
       "agents": {
-        "boss": "Read the ticket, sent Inventory and then Accounting, set the ticket to waiting_approval with a note explaining the stock and vendor blocker.",
-        "inventory": "check_stock: S = 0. list_vendors: Bulldog Print Co (apparel reprint, 5 lead days). check_vendor_can_ship(1): blocked by invoice #501, 3 days overdue. Outcome: blocked.",
-        "accounting": "Checked cash ($3,400), existing approvals, open invoices and payments, then filed request_payment_approval for invoice 501: approval #1, $840.00. Outcome: waiting_approval."
+        "boss": "Read the ticket, routed Inventory, then Accounting, then Customer Service in sequence, and set waiting_approval with a note. On the follow-up it had Inventory re-check the vendor and Customer Service send updated facts, then set in_progress (the backend then marked it resolved).",
+        "inventory": "check_stock: S = 0, short 1. check_vendor_can_ship(1): blocked by invoice #501, 3 days overdue. draft_vendor_reorder for exactly 1 (held). Follow-up: the vendor can ship, and release_held_reorders(1) released draft #1 with arrival 2026-09-05.",
+        "accounting": "Checked cash ($3,400, $0 pending), approvals and open invoices, then filed request_payment_approval for invoice 501: approval #1, $840.00, 'leaves $2,560 if approved.'",
+        "customer_service": "Saved reply draft #2 (size S unavailable, timing unconfirmed). Follow-up: saved draft #6 with 'expected by September 5, 2026 if the reorder is sent today.' Nothing was sent."
       },
-      "tools_used": ["get_ticket_details", "delegate_task", "check_stock", "list_vendors", "get_shop_date", "check_vendor_can_ship", "get_cash_balance", "list_approvals", "list_invoices", "list_payments", "request_payment_approval", "update_ticket_status"],
+      "tools_used": ["get_ticket_details", "delegate_task", "check_stock", "list_vendors", "check_vendor_can_ship", "draft_vendor_reorder", "release_held_reorders", "get_cash_balance", "list_approvals", "list_invoices", "request_payment_approval", "draft_message", "update_ticket_status"],
       "human_approvals": [
-        {"approval_id": 1, "kind": "invoice", "ref_id": 501, "payee": "Bulldog Print Co", "amount": 840.00, "decision": "approved", "approved_by": "Elise", "authorized_via": "Elise in chat ('approve #1 and #2 as Elise'); clicked Approve & pay on the dashboard", "payment_id": 1, "checking_before": 3400.00, "checking_after": 2560.00}
+        {"approval_id": 1, "kind": "invoice", "ref_id": 501, "payee": "Bulldog Print Co", "amount": 840.00, "decision": "approved", "approved_by": "Elise", "payment_id": 1, "checking_before": 3400.00, "checking_after": 2560.00}
       ],
-      "drafts": [],
-      "usage": {"model_requests": 12, "tool_calls": 17, "input_tokens": 25987, "output_tokens": 1447}
+      "drafts": [
+        {"draft_id": 1, "recipient": "Bulldog Print Co", "type": "vendor reorder, 1 x CC-TEE-WHITE S", "status": "draft (released, ready to send)", "sent": false},
+        {"draft_id": 2, "recipient": "Tauhid Zaman", "type": "customer reply (superseded by #6)", "sent": false},
+        {"draft_id": 6, "recipient": "Tauhid Zaman", "type": "customer reply, current", "sent": false}
+      ],
+      "usage": {"model_requests": 28, "tool_calls": 28, "input_tokens": 91046, "output_tokens": 3976}
     },
     {
       "id": 102,
@@ -37,20 +45,20 @@
       "requester": "Elm City Properties",
       "type": "rent_notice",
       "final_status": "resolved",
-      "team_run_id": "463ea7760cdc",
-      "outcome": "Lease 1 rent of $2,400 due 2026-09-02 was confirmed from the leases table. Accounting filed approval #2, a human approved it, rent was paid and the lease next_due moved to 2026-10-02.",
+      "team_run_ids": ["83c0dea08a19"],
+      "outcome": "Lease 1 rent of $2,400 due 2026-09-02 was confirmed from the leases table. Accounting filed approval #2, Elise approved it, rent was paid, and lease next_due moved to 2026-10-02.",
       "delegations": ["boss -> facilities", "facilities -> accounting"],
       "agents": {
-        "boss": "Read the ticket and sent Facilities. Summarized the result as waiting_approval.",
-        "facilities": "list_leases: Chapel Street shop, Elm City Properties, $2,400, due 2026-09-02 (2 days out). Checked cash and approvals, handed the payment to Accounting, and saved landlord draft #1 (its first draft_message call was rejected by the author check, and it retried successfully). Set the ticket to waiting_approval.",
-        "accounting": "get_lease(1), get_cash_balance, list_approvals, then request_payment_approval for rent on lease 1: approval #2, $2,400.00. Outcome: waiting_approval."
+        "boss": "Read the ticket, sent Facilities, and confirmed the outcome (waiting_approval, then resolved after payment).",
+        "facilities": "get_lease(1): Chapel Street shop, Elm City Properties, $2,400, due 2026-09-02 (2 days, not overdue). The requester and note match the database. Checked cash ($3,400, $840 already pending) and handed the payment to Accounting. Set the ticket to waiting_approval.",
+        "accounting": "get_lease(1), get_cash_balance, list_approvals, then request_payment_approval for rent on lease 1: approval #2, $2,400.00. Showed $3,400 - $840 - $2,400 = $160 if both are approved."
       },
-      "tools_used": ["get_ticket_details", "delegate_task", "get_shop_date", "list_leases", "get_cash_balance", "list_approvals", "get_lease", "request_payment_approval", "draft_message", "update_ticket_status"],
+      "tools_used": ["get_ticket_details", "delegate_task", "get_lease", "get_cash_balance", "list_approvals", "get_shop_date", "request_payment_approval", "update_ticket_status"],
       "human_approvals": [
-        {"approval_id": 2, "kind": "rent", "ref_id": 1, "payee": "Elm City Properties", "amount": 2400.00, "decision": "approved", "approved_by": "Elise", "authorized_via": "Elise in chat ('approve #1 and #2 as Elise'); clicked Approve & pay on the dashboard", "payment_id": 2, "checking_before": 2560.00, "checking_after": 160.00}
+        {"approval_id": 2, "kind": "rent", "ref_id": 1, "payee": "Elm City Properties", "amount": 2400.00, "decision": "approved", "approved_by": "Elise", "payment_id": 2, "checking_before": 2560.00, "checking_after": 160.00}
       ],
-      "drafts": [{"draft_id": 1, "recipient_type": "landlord", "recipient": "Elm City Properties", "subject": "Re: Rent due September 2", "sent": false}],
-      "usage": {"model_requests": 12, "tool_calls": 17, "input_tokens": 24885, "output_tokens": 1545}
+      "drafts": [],
+      "usage": {"model_requests": 11, "tool_calls": 14, "input_tokens": 30075, "output_tokens": 1790}
     },
     {
       "id": 103,
@@ -58,19 +66,26 @@
       "requester": "Yale AI Club",
       "type": "price_override",
       "final_status": "resolved",
-      "team_run_id": "51d56979ac88",
-      "outcome": "Priced an illustrative 20% bulk discount: $46.40/unit, $928.00 total, $24.40/unit margin ($488.00) above the $22 cost. Only 8 of 20 size M are on hand (12 short), and the restock is blocked by the same invoice #501. No discount was authorized, no customer draft was saved, and no money moved. Marked resolved by the backend because no payment was pending.",
-      "delegations": ["boss -> accounting", "boss -> inventory", "boss -> customer_service", "customer_service -> accounting", "customer_service -> inventory"],
+      "team_run_ids": ["e81e61963687", "9b35ae8824f3", "84a96fadf8fc"],
+      "outcome": "Accounting priced 10% ($52.20/unit, $1,044) and 20% ($46.40/unit, $928) options above the $22 cost. Elise chose 20%. Only 8 of 20 size M are on hand. Reorder #3 for the 12 short was held, then released after invoice 501 was paid (arrival 2026-09-05 if sent). The final customer reply #7 states the approved price, 8 available now and the rest by Sept 5. No money moved.",
+      "delegations": ["boss -> accounting", "boss -> inventory", "boss -> customer_service", "boss -> accounting (decision run)", "boss -> customer_service (decision run)", "boss -> inventory (follow-up)", "boss -> customer_service (follow-up)"],
       "agents": {
-        "boss": "Sent Accounting, Inventory and Customer Service in parallel, then set the ticket to waiting_approval pending a human decision on the discount.",
-        "accounting": "Ran twice (once from Boss, once from Customer Service). quote_bulk_price at 20%, 50% and about 62% to find the cost floor. Recommended 20% as a safe illustrative quote and said a human must authorize any discount. Outcomes: in_progress, then needs_human.",
-        "inventory": "Ran twice. check_stock: size M = 8 of 20 (12 short); S=4, L=14, XL=6. check_vendor_can_ship(1): Bulldog Print Co blocked by invoice #501. Outcome: blocked.",
-        "customer_service": "Ran quote_bulk_price at 0%, re-delegated to Accounting and Inventory, and declined to draft a price offer because the discount was not authorized. Outcome: waiting_approval."
+        "boss": "Routed Accounting, then Inventory, then Customer Service, one at a time with no duplicates, and set blocked pending the human discount decision. It then carried Elise's 20% decision through and ran the follow-up.",
+        "accounting": "quote_bulk_price at 10% and 20% for 20 x CC-HOOD-NAVY M, and said a human must decide (needs_human). Decision run: verified $58.00 x 80% = $46.40, x 20 = $928.00, margin $24.40/unit ($488.00).",
+        "inventory": "check_stock: M = 8 of 20, short 12. check_vendor_can_ship(1): blocked by invoice #501. draft_vendor_reorder for exactly 12 (held). Follow-up: the vendor can ship, and draft #3 was already released (arrival 2026-09-05).",
+        "customer_service": "Draft #4 (8 available, pricing pending). Draft #5 (approved price, but the 'restock on hold' wording was stale and has been superseded). Final draft #7: $46.40 each / $928 total, 8 now, 12 by Sept 5 if the reorder is sent, asks whether they want the 8 now. Nothing was sent."
       },
-      "tools_used": ["get_ticket_details", "delegate_task", "quote_bulk_price", "get_cash_balance", "get_pricing", "check_stock", "list_vendors", "get_shop_date", "check_vendor_can_ship", "update_ticket_status"],
-      "human_approvals": [],
-      "drafts": [],
-      "usage": {"model_requests": 22, "tool_calls": 29, "input_tokens": 48810, "output_tokens": 2997}
+      "tools_used": ["get_ticket_details", "delegate_task", "quote_bulk_price", "get_cash_balance", "list_approvals", "list_invoices", "get_shop_date", "get_pricing", "check_stock", "list_vendors", "check_vendor_can_ship", "draft_vendor_reorder", "draft_message", "update_ticket_status"],
+      "human_approvals": [
+        {"kind": "price_decision", "decision": "20% bulk discount approved: $46.40 x 20 = $928.00", "approved_by": "Elise", "money_moved": 0.00}
+      ],
+      "drafts": [
+        {"draft_id": 3, "recipient": "Bulldog Print Co", "type": "vendor reorder, 12 x CC-HOOD-NAVY M", "status": "draft (released, ready to send)", "sent": false},
+        {"draft_id": 4, "recipient": "Yale AI Club", "type": "customer reply (superseded)", "sent": false},
+        {"draft_id": 5, "recipient": "Yale AI Club", "type": "customer reply (superseded; stale 'on hold' wording)", "sent": false},
+        {"draft_id": 7, "recipient": "Yale AI Club", "type": "customer reply, current", "sent": false}
+      ],
+      "usage": {"model_requests": 39, "tool_calls": 39, "input_tokens": 124285, "output_tokens": 6084}
     }
   ]
 }

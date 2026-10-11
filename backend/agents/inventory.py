@@ -9,5 +9,6 @@ INVENTORY = AgentRole(
     prompt_file="inventory.md",
     mcp_tools=frozenset({
         "check_stock", "get_pricing", "list_vendors", "check_vendor_can_ship", "draft_vendor_reorder",
+        "release_held_reorders",
     }),
 )

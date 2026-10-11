@@ -133,6 +133,28 @@ def _open_invoices_for_vendor(conn: sqlite3.Connection, vendor_id: int) -> list[
     )
 
 
+def _release_held_reorders(conn: sqlite3.Connection, vendor_id: int, today: str) -> list[dict]:
+    """If the vendor has no open invoices left, flip its held reorder drafts to 'draft'
+    (ready to send) and add the expected arrival date. Returns the released drafts."""
+    vendor = _row(conn, "SELECT * FROM vendors WHERE id = ?", (vendor_id,))
+    if vendor is None or _open_invoices_for_vendor(conn, vendor_id):
+        return []
+    arrival = (date.fromisoformat(today) + timedelta(days=vendor["lead_days"])).isoformat()
+    held = _rows(
+        conn,
+        "SELECT * FROM drafts WHERE recipient_type = 'vendor' AND recipient = ? AND status = 'blocked_unpaid_invoice'",
+        (vendor["name"],),
+    )
+    for d in held:
+        body = d["body"] + (
+            f"\nRELEASED {today}: {vendor['name']} has no open invoices, so this reorder is ready to send. "
+            f"Expected arrival if sent today: {arrival} ({vendor['lead_days']} lead days)."
+        )
+        conn.execute("UPDATE drafts SET status = 'draft', body = ? WHERE id = ?", (body, d["id"]))
+        _append_ticket_note(conn, d["ticket_id"], f"[{today}] Reorder draft #{d['id']} released: {vendor['name']} can ship; expected arrival {arrival}.")
+    return [{**_row(conn, "SELECT * FROM drafts WHERE id = ?", (d["id"],)), "expected_arrival_if_sent_today": arrival} for d in held]
+
+
 def _is_agent_identity(name: str) -> bool:
     n = name.strip().lower().replace(" ", "_")
     return n in AGENT_NAMES or n in {"agent", "ai", "bot", "system", "assistant"}
@@ -394,6 +416,34 @@ def draft_vendor_reorder(
             date.fromisoformat(today) + timedelta(days=vendor["lead_days"])
         ).isoformat()
     return result
+
+
+@mcp.tool()
+def release_held_reorders(vendor_id: int) -> dict:
+    """Re-check a vendor and release its held reorder drafts.
+
+    Reorder drafts are saved as 'blocked_unpaid_invoice' while the vendor has
+    an open unpaid invoice. Once every invoice for that vendor is paid, this
+    flips them to 'draft' (ready to send) and adds the expected arrival date
+    (desk.date_today + lead_days). Nothing is sent.
+    """
+    with _connect() as conn:
+        vendor = _row(conn, "SELECT * FROM vendors WHERE id = ?", (vendor_id,))
+        if vendor is None:
+            return {"error": f"No vendor with id {vendor_id} exists."}
+        today = _today(conn)
+        open_invoices = _open_invoices_for_vendor(conn, vendor_id)
+        if open_invoices:
+            return {
+                "vendor": vendor, "can_ship": False, "released": [],
+                "reason": f"{vendor['name']} still has open unpaid invoice(s) {[i['id'] for i in open_invoices]}; reorders stay on hold.",
+            }
+        released = _release_held_reorders(conn, vendor_id, today)
+    return {
+        "vendor": vendor, "can_ship": True, "released": released,
+        "expected_arrival_if_sent_today": (date.fromisoformat(today) + timedelta(days=vendor["lead_days"])).isoformat(),
+        "message": f"Released {len(released)} held reorder draft(s). Nothing was sent." if released else "No held reorder drafts for this vendor.",
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -738,6 +788,9 @@ def approve_and_pay(approval_id: int, approved_by: str, account: str = DEFAULT_A
         if kind == "invoice":
             conn.execute("UPDATE invoices SET status = 'paid' WHERE id = ?", (ref_id,))
             effect = f"invoice {ref_id} marked paid"
+            released = _release_held_reorders(conn, inv["vendor_id"], today)
+            if released:
+                effect += f"; released held reorder draft(s) {[d['id'] for d in released]}"
         else:
             next_due = _add_one_month(lease["next_due"])
             conn.execute("UPDATE leases SET next_due = ? WHERE id = ?", (next_due, ref_id))

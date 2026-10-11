@@ -28,6 +28,7 @@ Payments are a two-step process. Agents *request* approval, and only a human can
 | Inventory | `list_vendors()` | Vendors with specialty and `lead_days`. |
 | Inventory | `check_vendor_can_ship(vendor_id)` | Open unpaid invoices block shipping; otherwise earliest arrival = today + lead days. |
 | Inventory | `draft_vendor_reorder(ticket_id, vendor_id, sku, size, qty, author)` | Saves a reorder **draft** (held if the vendor has unpaid invoices). Nothing is sent. |
+| Inventory | `release_held_reorders(vendor_id)` | Re-checks a vendor; once all its invoices are paid, flips held reorder drafts to ready-to-send with the expected arrival date. Nothing is sent. |
 | Accounting | `get_cash_balance()` | Balances + total of pending approval requests. |
 | Accounting | `list_invoices(status="")` | Invoices with vendor name and days overdue. |
 | Accounting | `list_payments()` | Every payment made. |
@@ -38,7 +39,7 @@ Payments are a two-step process. Agents *request* approval, and only a human can
 | Facilities | `list_leases()` | All leases + days until due. |
 | Messaging | `draft_message(ticket_id, recipient_type, recipient, subject, body, author)` | Saves a customer/vendor/landlord **draft** on the board. Nothing is sent. |
 | Messaging | `list_drafts(ticket_id=0)` | Drafts on the board. |
-| Human only | `approve_and_pay(approval_id, approved_by, account="checking")` | Pays a pending request: refuses agents as approvers and refuses if cash would go negative. Updates `cash_accounts`, `payments`, and `invoices`/`leases`, `approvals`, `tickets`. |
+| Human only | `approve_and_pay(approval_id, approved_by, account="checking")` | Pays a pending request: refuses agents as approvers and refuses if cash would go negative. Updates `cash_accounts`, `payments`, and `invoices`/`leases`, `approvals`, `tickets`, and auto-releases that vendor's held reorder drafts once its last invoice is paid. |
 | Human only | `reject_approval(approval_id, decided_by, reason="")` | Rejects a pending request. No money moves. |
 
 The server also creates two support tables if they're missing: `approvals` (payment requests) and `drafts` (messages on the board).

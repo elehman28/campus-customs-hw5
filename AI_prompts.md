@@ -202,3 +202,7 @@ A copy of every prompt typed while vibe coding this homework, one section per pr
 *(Attachment: screenshot of the expected `hw5/` file tree.)*
 
 > expand the agent prompts and push the update
+
+> yes rerun all three tickets with the new prompts and make sure what I will submit reflects the updated information and is correct
+
+> approve #1 and #2 as Elise, go with 20% off

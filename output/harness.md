@@ -95,8 +95,8 @@ FastMCP server named `campus-customs`. Every agent uses these tools. It reads fr
 ## MCP connection and smoke test
 
 - **Connection config:** `.mcp.json` at the project root registers the server `campus-customs`. It launches over stdio with `.venv/bin/python mcp_server/server.py`, and `CAMPUS_CUSTOMS_DB` points to `data/campus_customs_new.db`. Claude Code loads this file automatically when a session starts in this folder.
-- **Smoke test:** `.venv/bin/python mcp_server/smoke_test.py` connects as an MCP client using that same `.mcp.json`. It calls each tool and compares the output to a direct sqlite3 read of the working DB. Evidence is in `output/mcp_smoke.json`; all 3 tools have `matches_database: true`.
-- The `update_ticket_status` test sets ticket 102 to its current status (`open`) with no note. That exercises the write path without changing the working DB.
+- **Smoke test:** `.venv/bin/python mcp_server/smoke_test.py` connects as an MCP client using that same `.mcp.json`. It calls each tool and compares the output to a direct sqlite3 read of the working DB. Evidence is in `output/mcp_smoke.json`; all 3 tools have `matches_database: true`. It was captured in Problem 4 against the clean working database, before any tickets were run.
+- The `update_ticket_status` test sets ticket 102 to its current status (`open`) with no note. That exercises the write path without changing the working DB. **Only rerun the smoke test after a reset**: on the post-run database ticket 102 is `resolved`, so this test would reopen it.
 
 ---
 
@@ -109,7 +109,7 @@ Built with PydanticAI. Every agent uses **`gpt-6-luna` through Portkey** (`PORTK
 | Agent | File | Prompt | Owns | MCP tools (in addition to the board tools*) |
 |---|---|---|---|---|
 | **Boss** | `backend/agents/boss.py` | `backend/prompts/boss.md` | Triage, routing, checking teammates' work, final report to the human | `get_cash_balance`, `list_approvals`, `list_drafts` |
-| **Inventory** | `backend/agents/inventory.py` | `backend/prompts/inventory.md` | Stock, vendors, lead times, draft reorders | `check_stock`, `get_pricing`, `list_vendors`, `check_vendor_can_ship`, `draft_vendor_reorder` |
+| **Inventory** | `backend/agents/inventory.py` | `backend/prompts/inventory.md` | Stock, vendors, lead times, draft reorders | `check_stock`, `get_pricing`, `list_vendors`, `check_vendor_can_ship`, `draft_vendor_reorder`, `release_held_reorders` |
 | **Accounting** | `backend/agents/accounting.py` | `backend/prompts/accounting.md` | Cash, invoices, discount math, **the only role that files payment approval requests** | `get_cash_balance`, `list_invoices`, `list_payments`, `get_pricing`, `quote_bulk_price`, `check_vendor_can_ship`, `get_lease`, `request_payment_approval`, `list_approvals` |
 | **Facilities** | `backend/agents/facilities.py` | `backend/prompts/facilities.md` | Shop space, lease, rent due dates, landlord drafts | `get_lease`, `list_leases`, `get_cash_balance`, `list_approvals`, `draft_message` |
 | **Customer Service** | `backend/agents/customer_service.py` | `backend/prompts/customer_service.md` | Customer replies (drafts only), what can be promised | `check_stock`, `get_pricing`, `quote_bulk_price`, `draft_message`, `list_drafts` |
@@ -143,6 +143,7 @@ Emails and card-like numbers are redacted before anything is written.
 | `list_vendors` | `vendors` | R | Inventory |
 | `check_vendor_can_ship` | `vendors`, `invoices`, `desk` | R | Inventory, Accounting |
 | `draft_vendor_reorder` | `drafts` (W); `vendors`, `inventory`, `invoices`, `tickets`, `desk` (R) | W | Inventory |
+| `release_held_reorders` | `drafts`, `tickets` (W); `vendors`, `invoices`, `desk` (R) | W (nothing sent) | Inventory |
 | `get_cash_balance` | `cash_accounts`, `approvals` | R | Boss, Accounting, Facilities |
 | `list_invoices` | `invoices`, `vendors`, `desk` | R | Accounting |
 | `list_payments` | `payments` | R | Accounting |
@@ -153,7 +154,7 @@ Emails and card-like numbers are redacted before anything is written.
 | `list_leases` | `leases`, `desk` | R | Facilities |
 | `draft_message` | `drafts` (W); `tickets`, `desk` (R) | W (nothing sent) | Facilities, Customer Service |
 | `list_drafts` | `drafts` | R | Boss, Customer Service |
-| `approve_and_pay` | `cash_accounts`, `payments`, `invoices`/`leases`, `approvals`, `tickets` | W | **Human only** (dashboard → backend) |
+| `approve_and_pay` | `cash_accounts`, `payments`, `invoices`/`leases`, `approvals`, `tickets`, `drafts` (auto-releases held reorders once a vendor's last invoice is paid) | W | **Human only** (dashboard → backend) |
 | `reject_approval` | `approvals`, `tickets` | W | **Human only** (dashboard → backend) |
 
 `approvals` and `drafts` are support tables the MCP server creates if they're missing. Resetting the database removes them, which is what we want.
@@ -197,7 +198,7 @@ Start the server from `backend/` with `uvicorn main:app --reload --port 8000`, w
 - `GET /api/cash`: the current `checking` balance from `cash_accounts`, plus the total waiting for approval and the balance if all of it were paid.
 - `POST /api/reset`: copies `data/campus_customs.db` over `data/campus_customs_new.db` to start a fresh run. Blocked while a run is going. The audit trail is kept, not wiped.
 
-**Ticket lifecycle in the backend:** when a team run finishes, the backend marks the ticket `resolved` (through the MCP `update_ticket_status` tool) if no payment approval is pending for it. When a human approves the last pending payment on a ticket, `approve` also marks it `resolved`. Both write a `ticket_resolved` audit event.
+**Ticket lifecycle in the backend:** when a team run finishes, the backend marks the ticket `resolved` (through the MCP `update_ticket_status` tool) if no payment approval is pending for it and the team didn't mark it `blocked`. When a human approves the last pending payment on a ticket, `approve` also marks it `resolved`. Both write a `ticket_resolved` audit event.
 
 ---
 
@@ -224,10 +225,21 @@ React + Vite + TypeScript. Run `npm run dev` in `frontend/` to serve it at `http
 
 ---
 
-## Problem 9 run results
+## Problem 9 run results (final graded run, expanded prompts)
 
-| Ticket | Hand-offs | Human approval | Checking | Tokens | Final |
-|---|---|---|---|---|---|
+The database was reset first, and the starting checking balance was **$3,400.00**.
+
+| Ticket | Team runs | Hand-offs | Human approval | Checking | Tokens | Final |
+|---|---|---|---|---|---|---|
+| 101 | `4338ea3447e4` + follow-up `ce1db5469628` | Boss→Inv, Boss→Acct, Boss→CS; follow-up Boss→Inv, Boss→CS | #1 $840.00 invoice 501 (Elise) | $3,400.00 → $2,560.00 | 95,022 | resolved |
+| 102 | `83c0dea08a19` | Boss→Facilities, Facilities→Accounting | #2 $2,400.00 rent lease 1 (Elise) | $2,560.00 → $160.00 | 31,865 | resolved |
+| 103 | `e81e61963687` + decision `9b35ae8824f3` + follow-up `84a96fadf8fc` | Boss→Acct, Boss→Inv, Boss→CS; then Boss→Acct, Boss→CS; then Boss→Inv, Boss→CS | price decision only: 20% off, $928.00 (Elise) | $160.00 (no change) | 130,369 | resolved |
+
+The ending checking balance of **$160.00** matches `cash_accounts` (2 payments totaling $3,240.00). Details are in `output/desk_tickets.html` (Actual, Cash and Reflection tabs), `output/resolved_tickets.json` and `output/resolved_board.html`. Every step is in `output/audit_trail.json`.
+
+**Bug found and fixed during the run:** held reorder drafts (`blocked_unpaid_invoice`) didn't update after a human paid the vendor's invoice, so a customer draft repeated a stale "restock on hold." The fix: `approve_and_pay` now auto-releases a vendor's held reorders when its last open invoice is paid, the new `release_held_reorders` tool lets Inventory re-check, and the Boss, Inventory and Customer Service prompts now say to re-check facts after a human acts. The 101 and 103 follow-up runs used the fix.
+
+---|---|---|---|---|---|
 | 101 | Boss→Inventory, Boss→Accounting | #1 $840.00 invoice 501 (Elise) | $3,400.00 → $2,560.00 | 27,434 | resolved |
 | 102 | Boss→Facilities, Facilities→Accounting | #2 $2,400.00 rent lease 1 (Elise) | $2,560.00 → $160.00 | 26,430 | resolved |
 | 103 | Boss→Acct/Inv/CS, CS→Acct, CS→Inv | none | $160.00 (no change) | 51,807 | resolved |
@@ -252,16 +264,25 @@ The ending checking balance of **$160.00** matches `cash_accounts`. Details are 
 
 ---
 
-## Agent prompts: expanded after the graded run
+## Agent prompts
 
-The Problem 9 run (the outputs in `desk_tickets.html`, `resolved_tickets.json` and `audit_trail.json`) used the original one-sentence prompts. After the run, each prompt in `backend/prompts/` was expanded, keeping its original sentence as the opener, to fix what the run exposed:
+Each prompt in `backend/prompts/` keeps its original one-sentence description as the opener and then covers role and scope, the shop rules that agent needs, how to route and delegate, and what to report. They were expanded after a first practice run with one-line prompts showed these problems:
 
-- **Boss:** routing by ticket type, one delegation at a time (no parallel fan-out, which caused 103's 5 hand-offs), Customer Service always last, status rules, and token discipline.
-- **Inventory:** the vendor-block rule, `date_today + lead_days` arrivals only, and reorder drafts for only the quantity needed.
+- 103 fanned out to 5 hand-offs, with Customer Service re-delegating so Accounting and Inventory each ran twice.
+- No customer replies were saved for 101 or 103.
+- Facilities used the wrong `author` on a draft.
+
+The final graded run (above) used the expanded prompts. The audit trail records each prompt file's hash on every `agent_started` event.
+
+- **Boss:** routing by ticket type, one delegation at a time, Customer Service always last, re-check facts after humans act, status rules, and token discipline.
+- **Inventory:** the vendor-block rule, `date_today + lead_days` arrivals only, reorders for only the quantity needed, and releasing held reorders after a payment.
 - **Accounting:** check before filing, no duplicate requests, running totals, cost floor, and no invented discount policy.
-- **Facilities:** lease from the database not the email, rent goes to Accounting, and `author="facilities"` (its first draft on 102 was rejected for the wrong author).
-- **Customer Service:** *drafts only, never sent*, always save a draft (none was saved on 101 or 103), no re-delegating to teammates already on the ticket, and no invented dates or discounts.
+- **Facilities:** lease from the database not the email, rent goes to Accounting, and `author="facilities"`.
+- **Customer Service:** *drafts only, never sent*, always save a draft, no re-delegating, use released arrival dates, and no invented dates or discounts.
 
-To see the effect, reset the database and rerun the three tickets.
+**Which runs in the audit trail are graded:** `audit_trail.json` is append-only, so it also holds earlier practice runs:
+- the one-line-prompt runs `2eb5a59adce5`, `463ea7760cdc` and `51d56979ac88`;
+- a later ticket-101 practice run, `8d5b4e0250a5`;
+- a failed first attempt, `fa3cffa06d42`.
 
-**Note on the audit trail after grading:** `audit_trail.json` is append-only, so it also contains a later, ungraded practice run on ticket 101 (a reset at 18:48 UTC, team run `8d5b4e0250a5`, then a payment approval). The graded runs are `2eb5a59adce5` (101), `463ea7760cdc` (102) and `51d56979ac88` (103). `data/campus_customs_new.db` in this repo is the graded end state: all 3 tickets resolved and checking at $160.00.
+The **graded runs** are `4338ea3447e4`, `83c0dea08a19`, `e81e61963687`, `9b35ae8824f3`, `ce1db5469628` and `84a96fadf8fc`, all after the last `database_reset`. `data/campus_customs_new.db` in this repo is their end state: all 3 tickets resolved and checking at $160.00.

@@ -19,7 +19,15 @@ function useRolling(value: number | undefined, ms = 1400) {
       else from.current = value
     }
     raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    // Background tabs pause requestAnimationFrame; always land on the real balance.
+    const settle = setTimeout(() => {
+      setShown(value)
+      from.current = value
+    }, ms + 50)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(settle)
+    }
   }, [value, ms])
   return shown
 }

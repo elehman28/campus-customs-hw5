@@ -24,7 +24,7 @@ requirements.txt       Python dependencies
 data/
   campus_customs.db       ORIGINAL: never modified, the reset source
   campus_customs_new.db   WORKING COPY: what the MCP server reads/writes (state after the graded run)
-mcp_server/            server.py (FastMCP, 22 tools), smoke_test.py, README.md
+mcp_server/            server.py (FastMCP, 23 tools), smoke_test.py, README.md
 backend/               main.py (FastAPI), models.py, config.py, team.py, audit.py, shop_mcp.py,
                        agents/ (boss, inventory, accounting, facilities, customer_service), prompts/ (one .md per agent)
 frontend/              React + Vite + TypeScript dashboard
